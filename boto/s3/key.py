@@ -31,7 +31,8 @@ import binascii
 import math
 from hashlib import md5
 import boto.utils
-from boto.compat import BytesIO, six, urllib, encodebytes
+from boto.compat import BytesIO, six, StringIO, urllib, encodebytes
+from boto import handler
 
 from boto.exception import BotoClientError
 from boto.exception import StorageDataError
@@ -39,10 +40,13 @@ from boto.exception import PleaseRetryException
 from boto.provider import Provider
 from boto.s3.keyfile import KeyFile
 from boto.s3.user import User
+from boto.s3.tagging import Tags
 from boto import UserAgent
 from boto.utils import compute_md5, compute_hash
 from boto.utils import find_matching_headers
 from boto.utils import merge_headers_by_name
+import xml.sax
+import xml.sax.saxutils
 
 
 class Key(object):
@@ -1931,3 +1935,56 @@ class Key(object):
             raise provider.storage_response_error(response.status,
                                                   response.reason,
                                                   response.read())
+
+    def get_tags(self):
+        response = self.get_xml_tags()
+        tags = Tags()
+        h = handler.XmlHandler(tags, self)
+        if not isinstance(response, bytes):
+            response = response.encode('utf-8')
+        xml.sax.parseString(response, h)
+        return tags
+
+    def get_xml_tags(self):
+        response = self.bucket.connection.make_request('GET', self.bucket.name, self.name,
+                                                query_args='tagging',
+                                                headers=None)
+        body = response.read()
+        if response.status == 200:
+            return body
+        else:
+            raise self.bucket.connection.provider.storage_response_error(
+                response.status, response.reason, body)
+
+    def set_xml_tags(self, tag_str, headers=None, query_args='tagging'):
+        if headers is None:
+            headers = {}
+        md5 = compute_md5(StringIO(tag_str))
+        headers['Content-MD5'] = md5[1]
+        headers['Content-Type'] = 'text/xml'
+        if not isinstance(tag_str, bytes):
+            tag_str = tag_str.encode('utf-8')
+        response = self.bucket.connection.make_request('PUT', self.bucket.name, self.name,
+                                                data=tag_str,
+                                                query_args=query_args,
+                                                headers=headers)
+        body = response.read()
+        if response.status != 200:
+            raise self.bucket.connection.provider.storage_response_error(
+                response.status, response.reason, body)
+        return True
+
+    def set_tags(self, tags, headers=None):
+        return self.set_xml_tags(tags.to_xml(), headers=headers)
+
+    def delete_tags(self, headers=None):
+        response = self.bucket.connection.make_request('DELETE', self.bucket.name, self.name,
+                                                query_args='tagging',
+                                                headers=headers)
+        body = response.read()
+        boto.log.debug(body)
+        if response.status == 204:
+            return True
+        else:
+            raise self.bucket.connection.provider.storage_response_error(
+                response.status, response.reason, body)
