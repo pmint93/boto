@@ -41,7 +41,7 @@ from boto.provider import Provider
 from boto.s3.keyfile import KeyFile
 from boto.s3.user import User
 from boto.s3.tagging import Tags
-from boto import UserAgent
+from boto import UserAgent, ForwardedFor
 from boto.utils import compute_md5, compute_hash
 from boto.utils import find_matching_headers
 from boto.utils import merge_headers_by_name
@@ -908,7 +908,8 @@ class Key(object):
         # Overwrite user-supplied user-agent.
         for header in find_matching_headers('User-Agent', headers):
             del headers[header]
-        headers['User-Agent'] = UserAgent
+        headers['User-Agent'] = UserAgent.__get__(self)
+        headers['X-Forwarded-For'] = ForwardedFor.__get__(self)
         # If storage_class is None, then a user has not explicitly requested
         # a storage class, so we can assume STANDARD here
         if self._storage_class not in [None, 'STANDARD']:

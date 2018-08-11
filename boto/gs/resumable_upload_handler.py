@@ -27,7 +27,7 @@ import socket
 import time
 import urlparse
 from hashlib import md5
-from boto import config, UserAgent
+from boto import config, UserAgent, ForwardedFor
 from boto.connection import AWSAuthConnection
 from boto.exception import InvalidUriError
 from boto.exception import ResumableTransferDisposition
@@ -614,7 +614,8 @@ class ResumableUploadHandler(object):
         if CT in headers and headers[CT] is None:
             del headers[CT]
 
-        headers['User-Agent'] = UserAgent
+        headers['User-Agent'] = UserAgent.__get__(self)
+        headers['X-Forwarded-For'] = ForwardedFor.__get__(self)
 
         # Determine file size different ways for case where fp is actually a
         # wrapper around a Key vs an actual file.

@@ -44,12 +44,31 @@ Version = __version__  # for backware compatibility
 # http://bugs.python.org/issue7980
 datetime.datetime.strptime('', '')
 
-UserAgent = 'Boto/%s Python/%s %s/%s' % (
-    __version__,
-    platform.python_version(),
-    platform.system(),
-    platform.release()
-)
+def get_user_agent(_):
+    try:
+        from flask import request
+        return 'VCCloudSimpleStorage {}'.format(request.headers.get('User-Agent'))
+    except:
+        return 'Boto/%s Python/%s %s/%s' % (
+            __version__,
+            platform.python_version(),
+            platform.system(),
+            platform.release()
+        )
+
+def get_forwarded_for(_):
+    try:
+        from flask import request
+        return ','.join([
+            *request.headers.getlist('X-Forwarded-For'),
+            request.remote_addr
+        ])
+    except:
+        return None
+
+UserAgent = property(get_user_agent)
+ForwardedFor = property(get_forwarded_for)
+
 config = Config()
 
 # Regex to disallow buckets violating charset or not [3..255] chars total.

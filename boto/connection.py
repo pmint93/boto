@@ -60,7 +60,7 @@ import boto.utils
 import boto.handler
 import boto.cacerts
 
-from boto import config, UserAgent
+from boto import config, UserAgent, ForwardedFor
 from boto.compat import six, http_client, urlparse, quote, encodebytes
 from boto.exception import AWSConnectionError
 from boto.exception import BotoClientError
@@ -372,7 +372,8 @@ class HTTPRequest(object):
                     self.headers[key] = quote(val.encode('utf-8'), safe)
             setattr(self, '_headers_quoted', True)
 
-        self.headers['User-Agent'] = UserAgent
+        self.headers['User-Agent'] = UserAgent.__get__(self)
+        self.headers['X-Forwarded-For'] = ForwardedFor.__get__(self)
 
         connection._auth_handler.add_auth(self, **kwargs)
 
@@ -794,7 +795,8 @@ class AWSAuthConnection(object):
             sock = socket.create_connection((self.proxy, int(self.proxy_port)))
         boto.log.debug("Proxy connection: CONNECT %s HTTP/1.0\r\n", host)
         sock.sendall("CONNECT %s HTTP/1.0\r\n" % host)
-        sock.sendall("User-Agent: %s\r\n" % UserAgent)
+        sock.sendall("User-Agent: %s\r\n" % UserAgent.__get__(self))
+        sock.sendall("X-Forwarded-For: %s\r\n" % ForwardedFor.__get__(self))
         if self.proxy_user and self.proxy_pass:
             for k, v in self.get_proxy_auth_header().items():
                 sock.sendall("%s: %s\r\n" % (k, v))
