@@ -47,7 +47,7 @@ datetime.datetime.strptime('', '')
 def get_user_agent(_):
     try:
         from flask import request
-        return 'VCCloudSimpleStorage {}'.format(request.headers.get('User-Agent'))
+        return ' '.join('VCCloudSimpleStorage', request.headers.get('User-Agent'))
     except:
         return 'Boto/%s Python/%s %s/%s' % (
             __version__,
@@ -64,7 +64,7 @@ def get_forwarded_for(_):
             request.remote_addr
         ])
     except:
-        return None
+        return ''
 
 UserAgent = property(get_user_agent)
 ForwardedFor = property(get_forwarded_for)
